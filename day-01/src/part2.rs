@@ -2,15 +2,14 @@ use std::collections::HashMap;
 use anyhow::Result;
 use anyhow::format_err;
 
-fn parse_line(line: &str) -> Result<u32> {
-    let chars = line.chars();
-    let mut digits = chars
-        .filter(|c| c.is_digit(10));
+pub fn process(input: &str) -> Result<String> {
+    let mut result = 0;
 
-    let first_digit = digits.nth(0).ok_or(format_err!("no digits"))?;
-    let last_digit = digits.nth_back(0).unwrap_or(first_digit);
-    let val = format!("{}{}", first_digit, last_digit);
-    Ok(u32::from_str_radix(&val, 10)?)
+    for line in input.lines() {
+        result += parse_line_with_words(line)?;
+    }
+
+    Ok(result.to_string())
 }
 
 fn parse_line_with_words(line: &str) -> Result<u32> {
@@ -48,22 +47,15 @@ fn parse_line_with_words(line: &str) -> Result<u32> {
     Ok(u32::from_str_radix(&val, 10)?)
 }
 
-pub fn part1(input: &str) -> Result<u32> {
-    let mut result = 0;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    for line in input.lines() {
-        result += parse_line(line)?;
+    #[test]
+    fn test_process() -> Result<()> {
+        todo!("haven't built test yet");
+        let input = "";
+        assert_eq!("", process(input)?);
+        Ok(())
     }
-
-    Ok(result)
-}
-
-pub fn part2(input: &str) -> Result<u32> {
-    let mut result = 0;
-
-    for line in input.lines() {
-        result += parse_line_with_words(line)?;
-    }
-
-    Ok(result)
 }
