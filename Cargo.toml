@@ -7,3 +7,4 @@ members = ["day-*"]
 [workspace.dependencies]
 anyhow = { version = "1.0.75", features = [] }
 rstest = "0.18.2"
+regex = "1.10.2"
