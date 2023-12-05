@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 regex = { workspace = true }
+itertools = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }

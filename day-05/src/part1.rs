@@ -1,74 +1,52 @@
 use std::cmp::min;
 use anyhow::Result;
+use itertools::Itertools;
 
-fn source_to_dest(source_num: u32, mappings: &Vec<&str>) -> u32 {
-    for mapping in mappings {
-        let components: Vec<u32> = mapping
-            .split(' ')
-            .map(|item: &str| item.parse().expect("range component is an integer"))
-            .collect();
-        assert_eq!(components.len(), 3);
-
-        if source_num >= components[1] && source_num < components[1] + components[2] {
-            let difference = source_num - components[1];
-            return components[0] + difference;
+fn source_to_dest(source_num: u64, ranges: &Vec<(u64, u64, u64)>) -> u64 {
+    for (dest_start, source_start, range_len) in ranges {
+        if source_num >= *source_start && source_num < *source_start + *range_len {
+            let difference = source_num - *source_start;
+            return *dest_start + difference;
         }
     }
 
     return source_num;
 }
 
+fn parse_section_ranges(section: &str) -> Vec<(u64, u64, u64)> {
+    section
+        .split('\n')
+        .skip(1)
+        .map(|row| {
+            row.split(' ')
+                .map(|elem| elem.parse::<u64>().expect("range elem is an integer"))
+                .collect_tuple().expect("rows should have exactly three integers")
+        })
+        .collect()
+}
+
 pub fn process(input: &str) -> Result<String> {
     let sections: Vec<&str> = input.split("\n\n").collect();
     assert_eq!(sections.len(), 8);
 
-    let starting_seeds: Vec<u32> = sections[0]
+    let starting_seeds = sections[0]
         .strip_prefix("seeds: ")
         .expect("first line lists the seeds")
         .split(' ')
-        .map(|seed| seed.parse::<u32>().expect("seed is numeric"))
-        .collect();
+        .map(|seed| seed.parse::<u64>().expect("seed is numeric"));
 
-    let soil_to_fertilizer_map: Vec<&str> =
-        sections[2]
-            .split('\n')
-            .skip(1)
-            .collect();
-
-    let fertilizer_to_water_map: Vec<&str> =
-        sections[3]
-            .split('\n')
-            .skip(1)
-            .collect();
-
-    let water_to_light_map: Vec<&str> =
-        sections[4]
-            .split('\n')
-            .skip(1)
-            .collect();
-
-    let light_to_temperature_map: Vec<&str> =
-        sections[5]
-            .split('\n')
-            .skip(1)
-            .collect();
-
-    let temperature_to_humidity_map: Vec<&str> =
-        sections[6]
-            .split('\n')
-            .skip(1)
-            .collect();
-
-    let humidity_to_location_map: Vec<&str> =
-        sections[7]
-            .split('\n')
-            .skip(1)
-            .collect();
+    let seed_to_soil_map = parse_section_ranges(sections[1]);
+    let soil_to_fertilizer_map = parse_section_ranges(sections[2]);
+    let fertilizer_to_water_map = parse_section_ranges(sections[3]);
+    let water_to_light_map = parse_section_ranges(sections[4]);
+    let light_to_temperature_map = parse_section_ranges(sections[5]);
+    let temperature_to_humidity_map = parse_section_ranges(sections[6]);
+    let humidity_to_location_map = parse_section_ranges(sections[7]);
 
     let locations = starting_seeds
-        .iter()
         .map(move |seed| {
-            let fertilizer = source_to_dest(*seed, &soil_to_fertilizer_map);
+            let soil = source_to_dest(seed, &seed_to_soil_map);
+            let fertilizer = source_to_dest(soil, &soil_to_fertilizer_map);
             let water = source_to_dest(fertilizer, &fertilizer_to_water_map);
             let light = source_to_dest(water, &water_to_light_map);
             let temperature = source_to_dest(light, &light_to_temperature_map);
