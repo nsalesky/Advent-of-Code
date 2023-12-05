@@ -9,6 +9,7 @@ edition = "2021"
 anyhow = { workspace = true }
 regex = { workspace = true }
 itertools = { workspace = true }
+rangemap = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
