@@ -1,22 +1,21 @@
 use std::cmp::min;
-use std::collections::HashMap;
 use anyhow::Result;
 
-fn process_ranges<'a>(lines: impl Iterator<Item=&'a str>) -> HashMap<u32, u32> {
-    let mut map = HashMap::new();
-
-    for line in lines {
-        let components: Vec<u32> = line
+fn source_to_dest(source_num: u32, mappings: &Vec<&str>) -> u32 {
+    for mapping in mappings {
+        let components: Vec<u32> = mapping
             .split(' ')
-            .map(|item| item.parse::<u32>().expect("range component is an integer"))
+            .map(|item: &str| item.parse().expect("range component is an integer"))
             .collect();
         assert_eq!(components.len(), 3);
-        for delta in 0..components[2] {
-            map.insert(components[1] + delta, components[0] + delta);
+
+        if source_num >= components[1] && source_num < components[1] + components[2] {
+            let difference = source_num - components[1];
+            return components[0] + difference;
         }
     }
 
-    map
+    return source_num;
 }
 
 pub fn process(input: &str) -> Result<String> {
@@ -30,45 +29,51 @@ pub fn process(input: &str) -> Result<String> {
         .map(|seed| seed.parse::<u32>().expect("seed is numeric"))
         .collect();
 
-    let soil_to_fertilizer_map = process_ranges(
+    let soil_to_fertilizer_map: Vec<&str> =
         sections[2]
             .split('\n')
-            .skip(1));
+            .skip(1)
+            .collect();
 
-    let fertilizer_to_water_map = process_ranges(
+    let fertilizer_to_water_map: Vec<&str> =
         sections[3]
             .split('\n')
-            .skip(1));
+            .skip(1)
+            .collect();
 
-    let water_to_light_map = process_ranges(
+    let water_to_light_map: Vec<&str> =
         sections[4]
             .split('\n')
-            .skip(1));
+            .skip(1)
+            .collect();
 
-    let light_to_temperature_map = process_ranges(
+    let light_to_temperature_map: Vec<&str> =
         sections[5]
             .split('\n')
-            .skip(1));
+            .skip(1)
+            .collect();
 
-    let temperature_to_humidity_map = process_ranges(
+    let temperature_to_humidity_map: Vec<&str> =
         sections[6]
             .split('\n')
-            .skip(1));
+            .skip(1)
+            .collect();
 
-    let humidity_to_location_map = process_ranges(
+    let humidity_to_location_map: Vec<&str> =
         sections[7]
             .split('\n')
-            .skip(1));
+            .skip(1)
+            .collect();
 
     let locations = starting_seeds
         .iter()
-        .map(|seed| {
-            let fertilizer = soil_to_fertilizer_map.get(seed).unwrap_or(seed);
-            let water = fertilizer_to_water_map.get(fertilizer).unwrap_or(fertilizer);
-            let light = water_to_light_map.get(water).unwrap_or(water);
-            let temperature = light_to_temperature_map.get(light).unwrap_or(light);
-            let humidity = temperature_to_humidity_map.get(temperature).unwrap_or(temperature);
-            humidity_to_location_map.get(humidity).unwrap_or(humidity)
+        .map(move |seed| {
+            let fertilizer = source_to_dest(*seed, &soil_to_fertilizer_map);
+            let water = source_to_dest(fertilizer, &fertilizer_to_water_map);
+            let light = source_to_dest(water, &water_to_light_map);
+            let temperature = source_to_dest(light, &light_to_temperature_map);
+            let humidity = source_to_dest(temperature, &temperature_to_humidity_map);
+            source_to_dest(humidity, &humidity_to_location_map)
         });
 
     let min_location = locations.reduce(min).expect("there is at least one location");
