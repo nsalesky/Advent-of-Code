@@ -1,11 +1,34 @@
-use std::cmp::min;
+use std::cmp::{min, Ordering};
 use std::collections::LinkedList;
 use std::ops::Range;
 use anyhow::Result;
 use itertools::Itertools;
 use rangemap::{RangeMap, RangeSet};
 
-fn parse_section_ranges(section: &str) -> RangeMap<u64, u64> {
+#[derive(Ord)]
+struct Bound(u64, u64);
+
+impl Eq for Bound {}
+
+impl PartialEq<Self> for Bound {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialOrd<Self> for Bound {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.0 < other.0 {
+            Some(Ordering::Less)
+        } else if self.0 > other.0 {
+            Some(Ordering::Greater)
+        } else {
+            Some(Ordering::Equal)
+        }
+    }
+}
+
+fn parse_section_ranges(section: &str) -> Vec<(u64, u64, u64)> {
     section
         .split('\n')
         .skip(1)
@@ -14,10 +37,32 @@ fn parse_section_ranges(section: &str) -> RangeMap<u64, u64> {
                 .map(|elem| elem.parse::<u64>().expect("range elem is an integer"))
                 .collect_tuple::<(u64, u64, u64)>().expect("rows should have exactly three integers")
         })
-        .map(|(dest_start, source_start, range_len)| {
-            (source_start..source_start+range_len, dest_start)
-        })
         .collect()
+}
+
+fn process_item_ranges<I, T>(item_ranges: I, dest_mappings: T) -> Vec<Bound>
+where
+I: IntoIterator<Item = Bound>,
+T: IntoIterator<Item = (Bound, u64)>
+{
+    let mut dest_mappings_iter = dest_mappings.into_iter().peekable();
+    let mut results = vec![];
+
+    let mut worklist = LinkedList::from_iter(item_ranges);
+    while let Some(item_bound) = worklist.pop_front() {
+        let dest_bound = dest_mappings_iter.next();
+
+        match dest_mappings_iter.peek() {
+            Some(dest_mapping) => {
+            },
+            None => {
+
+            }
+        }
+    }
+
+    results.sort();
+    results
 }
 
 fn process_ranges<T>(ranges: T, source_to_dest_map: &RangeMap<u64, u64>) -> Vec<Range<u64>>
