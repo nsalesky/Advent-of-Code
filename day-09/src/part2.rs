@@ -1,7 +1,37 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
-pub fn process(_input: &str) -> Result<String> {
-    todo!("day 01 - part 2");
+fn predict_prev_element(sequence: &Vec<i32>) -> Result<i32> {
+    if sequence.len() < 2 {
+        return Err(anyhow!("not enough values to compute a difference"));
+    }
+
+    let mut differences = Vec::with_capacity(sequence.len() - 1);
+    for (i, value) in sequence.iter().enumerate().skip(1) {
+        differences.push(value - sequence[i - 1]);
+    }
+
+    if differences.iter().all(|v| v == &0) {
+        Ok(sequence[0])
+    } else {
+        let prev_difference = predict_prev_element(&differences)?;
+        Ok(sequence[0] - prev_difference)
+    }
+}
+
+fn process_line(line: &str) -> Result<i32> {
+    let values: Vec<i32> = line.split(' ')
+        .map(|v| v.parse().expect("value is an integer"))
+        .collect();
+
+    predict_prev_element(&values)
+}
+
+pub fn process(input: &str) -> Result<String> {
+    let mut result = 0;
+    for line in input.lines() {
+        result += process_line(line)?;
+    }
+    Ok(result.to_string())
 }
 
 #[cfg(test)]
@@ -10,9 +40,17 @@ mod tests {
 
     #[test]
     fn test_process() -> Result<()> {
-        todo!("haven't built test yet");
-        let input = "";
-        assert_eq!("", process(input)?);
+        let input = "\
+0 3 6 9 12 15
+1 3 6 10 15 21
+10 13 16 21 30 45";
+        assert_eq!("2", process(input)?);
+        Ok(())
+    }
+
+    #[test]
+    fn test_process_line() -> Result<()> {
+        assert_eq!(5, process_line("10 13 16 21 30 45")?);
         Ok(())
     }
 }
