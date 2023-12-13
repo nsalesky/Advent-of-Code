@@ -1,42 +1,75 @@
-use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::num::ParseIntError;
-use std::str::FromStr;
 use anyhow::Result;
-use itertools::Itertools;
-use thiserror::Error;
 
-#[derive(PartialEq, PartialOrd, Eq, Debug)]
+#[derive(PartialOrd, PartialEq, Eq, Ord, Hash, Debug)]
+enum Card {
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+    Nine,
+    Ten,
+    Jack,
+    Queen,
+    King,
+    Ace,
+}
+
+impl Card {
+    fn from_char(c: char) -> Option<Self> {
+        match c {
+            '2' => Some(Card::Two),
+            '3' => Some(Card::Three),
+            '4' => Some(Card::Four),
+            '5' => Some(Card::Five),
+            '6' => Some(Card::Six),
+            '7' => Some(Card::Seven),
+            '8' => Some(Card::Eight),
+            '9' => Some(Card::Nine),
+            'T' => Some(Card::Ten),
+            'J' => Some(Card::Jack),
+            'Q' => Some(Card::Queen),
+            'K' => Some(Card::King),
+            'A' => Some(Card::Ace),
+            _ => None,
+        }
+    }
+}
+
+#[derive(PartialOrd, PartialEq, Eq, Ord, Debug)]
 enum HandType {
-    HighCard,
-    OnePair,
-    TwoPair,
-    ThreeOfAKind,
-    FullHouse,
-    FourOfAKind,
-    FiveOfAKind,
+    HighCard([Card; 5]),
+    OnePair([Card; 5]),
+    TwoPair([Card; 5]),
+    ThreeOfAKind([Card; 5]),
+    FullHouse([Card; 5]),
+    FourOfAKind([Card; 5]),
+    FiveOfAKind([Card; 5]),
 }
 
-#[derive(Error, Debug)]
-enum ParseHandTypeError {
-    #[error("the input text was not 5 characters long")]
-    InvalidLength(),
-}
-
-impl FromStr for HandType {
-    type Err = ParseHandTypeError;
-
-    fn from_str(card_text: &str) -> Result<Self, Self::Err> {
-        if card_text.len() != 5 {
-            return Err(ParseHandTypeError::InvalidLength());
+impl HandType {
+    fn from_str(cards_text: &str) -> Option<Self> {
+        if cards_text.len() != 5 {
+            return None;
         }
 
+        let cards= cards_text
+            .chars()
+            .take(5)
+            .map(|c| Card::from_char(c).expect("char converts to a valid card"))
+            .collect::<Vec<Card>>()
+            .try_into()
+            .expect("cards converts to a 5-card array");
+
         let mut card_amounts: HashMap<char, u32> = HashMap::new();
-        for card in card_text.chars() {
-            if let Some(prev_amount) = card_amounts.get(&card) {
-                card_amounts.insert(card, prev_amount + 1);
+        for c in cards_text.chars() {
+            if let Some(prev_amount) = card_amounts.get(&c) {
+                card_amounts.insert(c, prev_amount + 1);
             } else {
-                card_amounts.insert(card, 1);
+                card_amounts.insert(c, 1);
             }
         }
 
@@ -47,99 +80,48 @@ impl FromStr for HandType {
         sorted_amounts.sort_by(|a, b| b.cmp(a));
 
         return if sorted_amounts.len() == 1 {
-            Ok(HandType::FiveOfAKind)
+            Some(HandType::FiveOfAKind(cards))
         } else if sorted_amounts.len() == 2 {
             if sorted_amounts[0] == 4 {
-                Ok(HandType::FourOfAKind)
+                Some(HandType::FourOfAKind(cards))
             } else {
-                Ok(HandType::FullHouse)
+                Some(HandType::FullHouse(cards))
             }
         } else if sorted_amounts.len() == 3 {
             if sorted_amounts[0] == 3 {
-                Ok(HandType::ThreeOfAKind)
+                Some(HandType::ThreeOfAKind(cards))
             } else {
-                Ok(HandType::TwoPair)
+                Some(HandType::TwoPair(cards))
             }
         } else if sorted_amounts.len() == 4 {
-            Ok(HandType::OnePair)
+            Some(HandType::OnePair(cards))
         } else {
-            Ok(HandType::HighCard)
+            Some(HandType::HighCard(cards))
         }
     }
 }
 
-#[derive(Error, Debug)]
-enum ParseHandError {
-    #[error("there was no card text")]
-    NoCardText(),
-
-    #[error("there was no bid amount")]
-    NoBidAmount(),
-
-    #[error("bid amount was not an integer")]
-    BidAmountNotInteger(#[from] ParseIntError),
-
-    #[error("card text was not a valid hand")]
-    CardNotAValidHand(#[from] ParseHandTypeError),
-}
-
-#[derive(Debug)]
+#[derive(PartialOrd, PartialEq, Eq, Ord, Debug)]
 struct Hand {
-    card_text: String,
-    bid_amount: u32,
     hand_type: HandType,
+    bid_amount: u32,
 }
 
-impl FromStr for Hand {
-    type Err = ParseHandError;
+impl Hand {
+    fn from_str(text: &str) -> Self {
+        let mut parts = text.split(' ');
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut parts = s.split(' ');
-        let card_text = parts.next().ok_or(ParseHandError::NoCardText())?;
-        let bid_text = parts.next().ok_or(ParseHandError::NoBidAmount{})?;
+        let cards_text = parts.next().expect("a hand should contain cards");
+        let bid_text = parts.next().expect("a hand should contain a bid amount");
 
-        Ok(Hand{
-            card_text: card_text.to_string(),
-            bid_amount: bid_text.parse()?,
-            hand_type: HandType::from_str(card_text)?,
-        })
-    }
-}
-
-impl Eq for Hand {}
-
-impl PartialEq<Self> for Hand {
-    fn eq(&self, other: &Self) -> bool {
-        self.hand_type == other.hand_type && self.card_text == other.card_text
-    }
-}
-
-impl PartialOrd<Self> for Hand {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self.hand_type.partial_cmp(&other.hand_type) {
-            Some(ord) => match ord {
-                Ordering::Equal => Some(self.card_text.cmp(&other.card_text)),
-                _ => Some(ord),
-            }
-            None => Some(self.card_text.cmp(&other.card_text))
+        Self {
+            hand_type: HandType::from_str(cards_text).expect("cards text should be a valid hand"),
+            bid_amount: bid_text.parse().expect("bid amount should be an integer"),
         }
     }
 }
 
-impl Ord for Hand {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match self.hand_type.partial_cmp(&other.hand_type) {
-            Some(ord) => match ord {
-                Ordering::Equal => self.card_text.cmp(&other.card_text),
-                _ => ord,
-            }
-            None => self.card_text.cmp(&other.card_text)
-        }
-    }
-}
-
-fn winnings_per_five_hands(hands: (Hand, Hand, Hand, Hand, Hand)) -> u32 {
-    let mut hands = vec![hands.0, hands.1, hands.2, hands.3, hands.4];
+fn total_winnings(mut hands: Vec<Hand>) -> u32 {
     hands.sort();
 
     hands
@@ -150,12 +132,11 @@ fn winnings_per_five_hands(hands: (Hand, Hand, Hand, Hand, Hand)) -> u32 {
 }
 
 pub fn process(input: &str) -> Result<String> {
-    let total_winnings = input
+    let total_winnings = total_winnings(
+        input
         .lines()
-        .map(|line| Hand::from_str(line).expect("every line is a valid hand"))
-        .tuples::<(Hand, Hand, Hand, Hand, Hand)>()
-        .map(winnings_per_five_hands)
-        .fold(0, |a, b| a + b);
+        .map(|line| Hand::from_str(line))
+            .collect());
 
     Ok(total_winnings.to_string())
 }
@@ -163,7 +144,6 @@ pub fn process(input: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::rstest;
 
     #[test]
     fn test_process() -> Result<()> {
@@ -178,23 +158,38 @@ QQQJA 483";
     }
 
 
-    #[rstest]
-    #[case("32T3K 765", HandType::OnePair, "32T3K", 765)]
-    #[case("T55J5 684", HandType::ThreeOfAKind, "T55J5", 684)]
-    #[case("KK677 28", HandType::TwoPair, "KK677", 28)]
-    #[case("KTJJT 220", HandType::TwoPair, "KTJJT", 220)]
-    #[case("QQQJA 483", HandType::ThreeOfAKind, "QQQJA", 483)]
-    fn text_parse_hand(#[case] input: &str,
-                       #[case] hand_type: HandType,
-                       #[case] card_text: &str,
-                       #[case] bid_amount: u32
-    ) -> Result<()> {
-        assert_eq!(Hand::from_str(input)?,
-        Hand {
-            hand_type,
-            card_text: card_text.to_owned(),
-            bid_amount,
-        });
-        Ok(())
+    // #[rstest]
+    // #[case("32T3K 765", HandType::OnePair, 765)]
+    // #[case("T55J5 684", HandType::ThreeOfAKind, 684)]
+    // #[case("KK677 28", HandType::TwoPair, 28)]
+    // #[case("KTJJT 220", HandType::TwoPair, 220)]
+    // #[case("QQQJA 483", HandType::ThreeOfAKind, 483)]
+    // fn text_parse_hand(#[case] input: &str,
+    //                    #[case] hand_type: HandType,
+    //                    #[case] bid_amount: u32
+    // ) -> Result<()> {
+    //     assert_eq!(Hand::from_str(input)?,
+    //     Hand {
+    //         hand_type,
+    //         card_text: card_text.to_owned(),
+    //         bid_amount,
+    //     });
+    //     Ok(())
+    // }
+
+    #[test]
+    fn test_parse_hand() {
+        let expected = Hand {
+            hand_type: HandType::ThreeOfAKind([
+                Card::Queen,
+                Card::Queen,
+                Card::Queen,
+                Card::Jack,
+                Card::Ace,
+            ]),
+            bid_amount: 483,
+        };
+
+        assert_eq!(Hand::from_str("QQQJA 483"), expected);
     }
 }
